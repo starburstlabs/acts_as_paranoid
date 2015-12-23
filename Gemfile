@@ -6,4 +6,7 @@ group :development do
   gem "activerecord-jdbcsqlite3-adapter", :platforms => [:jruby]
 end
 
+gem 'pry'
+gem 'pry-byebug'
+
 gemspec

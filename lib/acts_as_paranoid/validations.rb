@@ -12,28 +12,30 @@ module ActsAsParanoid
         table = finder_class.arel_table
 
         # TODO: Use record.class.column_types[attribute.to_s].coder ?
-        coder = record.class.column_types[attribute.to_s]
+        coder = record.class.attribute_types[attribute.to_s]
 
         if value && coder
           value = if coder.respond_to? :type_cast_for_database
                     coder.type_cast_for_database value
-                  else
+                  elsif coder.respond_to? :type_cast_for_write
                     coder.type_cast_for_write value
+                  else
+                    value
                   end
         end
 
         relation = build_relation(finder_class, table, attribute, value)
         [Array(finder_class.primary_key), Array(record.send(:id))].transpose.each do |pk_key, pk_value|
-          relation = relation.and(table[pk_key.to_sym].not_eq(pk_value))
+          relation = relation.where(table[pk_key.to_sym].not_eq(pk_value))
         end if record.persisted?
 
         Array.wrap(options[:scope]).each do |scope_item|
           scope_value = record.send(scope_item)
-          relation = relation.and(table[scope_item].eq(scope_value))
+          relation = relation.where(table[scope_item].eq(scope_value))
         end
 
         # Re-add ActsAsParanoid default scope conditions manually.
-        if finder_class.unscoped.where(finder_class.paranoid_default_scope_sql).where(relation).exists?
+        if relation.where(finder_class.paranoid_default_scope_sql).exists?
           record.errors.add(attribute, :taken, options.except(:case_sensitive, :scope).merge(:value => value))
         end
       end
